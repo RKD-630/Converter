@@ -1,8 +1,17 @@
 'use strict';
-const state={pages:[],stream:null,currentImage:null,rotation:0,cropActive:false,
+const state={pages:[],stream:null,
+  currentImage:null,   // display-res dataURL (for renderEdit)
+  hdImage:null,        // FULL resolution dataURL (for crop warp + PDF)
+  rotation:0,cropActive:false,
   corners:{tl:{x:0,y:0},tr:{x:0,y:0},br:{x:0,y:0},bl:{x:0,y:0}},
   adj:{brightness:0,contrast:0,darkness:0,sharpness:0},
-  detectInterval:null,flashOn:false,activeDrag:null};
+  detectInterval:null,flashOn:false,activeDrag:null,
+  // Performance: cached base canvas pixels (set after image draw, before filters)
+  _basePixels:null,_baseW:0,_baseH:0,
+  // RAF throttle
+  _rafPending:false,
+  // Sharpness debounce timer
+  _sharpTimer:null};
 
 const $=id=>document.getElementById(id);
 const splash=$('splash'),app=$('app');
@@ -61,7 +70,10 @@ $('btnFlash').addEventListener('click',()=>{state.flashOn=!state.flashOn;const t
 
 // EDITOR
 function loadIntoEditor(dataURL){
-  state.currentImage=dataURL;state.rotation=0;
+  // store BOTH: hdImage = full-res master, currentImage = same until crop reduces it
+  state.currentImage=dataURL;
+  state.hdImage=dataURL;
+  state.rotation=0;
   state.adj={brightness:0,contrast:0,darkness:0,sharpness:0};
   state.cropActive=false;textLayer.innerHTML='';
   ['slBrightness','slContrast','slDarkness','slSharpness'].forEach(id=>$(id).value=0);
@@ -69,7 +81,7 @@ function loadIntoEditor(dataURL){
   hideCrop();renderEdit();
 }
 
-function renderEdit(){
+function renderEdit(invalidateCache){
   const img=new Image();
   img.onload=()=>{
     let iw=img.naturalWidth,ih=img.naturalHeight;
@@ -79,22 +91,92 @@ function renderEdit(){
     editCanvas.width=Math.round(iw*sc);editCanvas.height=Math.round(ih*sc);
     const ctx=editCanvas.getContext('2d');
     ctx.save();ctx.translate(editCanvas.width/2,editCanvas.height/2);ctx.rotate(state.rotation*Math.PI/180);ctx.scale(sc,sc);ctx.drawImage(img,-img.naturalWidth/2,-img.naturalHeight/2);ctx.restore();
+    // Cache the freshly-drawn base pixels so sliders never reload the image
+    state._basePixels=ctx.getImageData(0,0,editCanvas.width,editCanvas.height);
+    state._baseW=editCanvas.width;state._baseH=editCanvas.height;
     applyFilters(ctx,editCanvas.width,editCanvas.height);
     if(state.cropActive)positionOverlay();
   };img.src=state.currentImage;
 }
 
-function applyFilters(ctx,w,h){
+/* ── Fast filter path ─────────────────────────────────────────
+   Brightness/Contrast → CSS filter (GPU, zero pixel cost)
+   Darkness            → lightweight pixel multiply (cached base)
+   Sharpness           → heavy convolution, debounced 250 ms
+──────────────────────────────────────────────────────────── */
+function applyFilters(ctx,w,h,skipSharpen){
   const{brightness:bf,contrast:cf,darkness:dk,sharpness:sp}=state.adj;
-  const id=ctx.getImageData(0,0,w,h);const d=id.data;
-  const b=bf/100*255,c=(cf/100+1)**2,dk2=dk/100;
-  for(let i=0;i<d.length;i+=4){let r=d[i]+b,g=d[i+1]+b,bl2=d[i+2]+b;r=c*(r-128)+128;g=c*(g-128)+128;bl2=c*(bl2-128)+128;r*=(1-dk2);g*=(1-dk2);bl2*=(1-dk2);d[i]=Math.max(0,Math.min(255,r));d[i+1]=Math.max(0,Math.min(255,g));d[i+2]=Math.max(0,Math.min(255,bl2));}
-  if(sp>0)applySharpen(d,w,h,sp/10);ctx.putImageData(id,0,0);
-}
-function applySharpen(d,w,h,amt){const k=[0,-1,0,-1,5,-1,0,-1,0],cp=new Uint8ClampedArray(d);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++)for(let c=0;c<3;c++){let v=0;for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=cp[((y+ky)*w+(x+kx))*4+c]*k[(ky+1)*3+(kx+1)];const i=(y*w+x)*4+c;d[i]=Math.max(0,Math.min(255,d[i]+(v-d[i])*amt));}}
 
-function bindSlider(id,key,vid){$(id).addEventListener('input',e=>{state.adj[key]=+e.target.value;$(vid).textContent=e.target.value;renderEdit();});}
-bindSlider('slBrightness','brightness','valBrightness');bindSlider('slContrast','contrast','valContrast');bindSlider('slDarkness','darkness','valDarkness');bindSlider('slSharpness','sharpness','valSharpness');
+  // 1. Restore unfiltered pixels from cache (avoids re-loading the image)
+  if(state._basePixels&&state._baseW===w&&state._baseH===h){
+    ctx.putImageData(state._basePixels,0,0);
+  }
+
+  // 2. GPU-accelerated brightness + contrast via CSS filter on the canvas element
+  const bright=100+bf;          // 0–200 %, 100 = no change
+  const cont=1+(cf/100);        // 0–2 ×
+  editCanvas.style.filter=`brightness(${bright}%) contrast(${cont})`;
+
+  // 3. Darkness: simple pixel multiply (cheap single-pass, no convolution)
+  if(dk>0){
+    const id=ctx.getImageData(0,0,w,h);const d=id.data;
+    const dk2=1-dk/100;
+    for(let i=0;i<d.length;i+=4){d[i]*=dk2;d[i+1]*=dk2;d[i+2]*=dk2;}
+    ctx.putImageData(id,0,0);
+  }
+
+  // 4. Sharpness convolution (expensive – caller may skip during drag)
+  if(sp>0&&!skipSharpen){
+    const id=ctx.getImageData(0,0,w,h);
+    applySharpen(id.data,w,h,sp/10);
+    ctx.putImageData(id,0,0);
+  }
+}
+
+function applySharpen(d,w,h,amt){
+  const k=[0,-1,0,-1,5,-1,0,-1,0],cp=new Uint8ClampedArray(d);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++)for(let c=0;c<3;c++){
+    let v=0;
+    for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=cp[((y+ky)*w+(x+kx))*4+c]*k[(ky+1)*3+(kx+1)];
+    const i=(y*w+x)*4+c;d[i]=Math.max(0,Math.min(255,d[i]+(v-d[i])*amt));
+  }
+}
+
+// RAF-throttled fast path used by sliders
+function applyFiltersFast(){
+  if(!state._basePixels)return;
+  const ctx=editCanvas.getContext('2d');
+  applyFilters(ctx,state._baseW,state._baseH,/*skipSharpen*/true);
+  // Schedule the expensive sharpen once the user pauses
+  if(state.adj.sharpness>0){
+    clearTimeout(state._sharpTimer);
+    state._sharpTimer=setTimeout(()=>{
+      const ctx2=editCanvas.getContext('2d');
+      const id=ctx2.getImageData(0,0,state._baseW,state._baseH);
+      applySharpen(id.data,state._baseW,state._baseH,state.adj.sharpness/10);
+      ctx2.putImageData(id,0,0);
+    },250);
+  }
+}
+
+function bindSlider(id,key,vid){
+  $(id).addEventListener('input',e=>{
+    state.adj[key]=+e.target.value;
+    $(vid).textContent=e.target.value;
+    // RAF throttle: at most one repaint per screen refresh
+    if(!state._rafPending){
+      state._rafPending=true;
+      requestAnimationFrame(()=>{
+        applyFiltersFast();
+        state._rafPending=false;
+      });
+    }
+  });
+}
+bindSlider('slBrightness','brightness','valBrightness');
+bindSlider('slContrast','contrast','valContrast');
+bindSlider('slDarkness','darkness','valDarkness');
+bindSlider('slSharpness','sharpness','valSharpness');
 
 window.applyPreset=function(name){
   const map={original:{brightness:0,contrast:0,darkness:0,sharpness:0},magic:{brightness:15,contrast:30,darkness:0,sharpness:3},grayscale:{brightness:0,contrast:20,darkness:0,sharpness:2},bw:{brightness:-10,contrast:80,darkness:20,sharpness:5},enhance:{brightness:10,contrast:15,darkness:0,sharpness:4}};
@@ -185,36 +267,70 @@ function computeH(dst,src){const A=[],b=[];for(let i=0;i<4;i++){const[xs,ys]=[sr
 
 function dist(a,b){return Math.hypot(b.x-a.x,b.y-a.y);}
 
+/* Bilinear sample – smooth HD quality (no pixel staircase) */
+function bilinear(data,w,h,fx,fy){
+  const x0=Math.floor(fx),y0=Math.floor(fy);
+  const x1=Math.min(x0+1,w-1),y1=Math.min(y0+1,h-1);
+  const dx=fx-x0,dy=fy-y0;
+  const out=[0,0,0,255];
+  for(let c=0;c<3;c++){
+    const tl=data[(y0*w+x0)*4+c],tr=data[(y0*w+x1)*4+c];
+    const bl=data[(y1*w+x0)*4+c],br=data[(y1*w+x1)*4+c];
+    out[c]=Math.round(tl*(1-dx)*(1-dy)+tr*dx*(1-dy)+bl*(1-dx)*dy+br*dx*dy);
+  }
+  return out;
+}
+
 function warpPerspective(srcCanvas,corners,scaleX,scaleY){
-  // Scale display corners → full image corners
-  const sc={tl:{x:corners.tl.x*scaleX,y:corners.tl.y*scaleY},tr:{x:corners.tr.x*scaleX,y:corners.tr.y*scaleY},br:{x:corners.br.x*scaleX,y:corners.br.y*scaleY},bl:{x:corners.bl.x*scaleX,y:corners.bl.y*scaleY}};
+  // Scale display corners → full-resolution image corners
+  const sc={
+    tl:{x:corners.tl.x*scaleX,y:corners.tl.y*scaleY},
+    tr:{x:corners.tr.x*scaleX,y:corners.tr.y*scaleY},
+    br:{x:corners.br.x*scaleX,y:corners.br.y*scaleY},
+    bl:{x:corners.bl.x*scaleX,y:corners.bl.y*scaleY}
+  };
   const outW=Math.round(Math.max(dist(sc.tl,sc.tr),dist(sc.bl,sc.br)));
   const outH=Math.round(Math.max(dist(sc.tl,sc.bl),dist(sc.tr,sc.br)));
   const dst=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
-  const src=[sc.tl,sc.tr,sc.br,sc.bl];
-  const H=computeH(dst,src);if(!H)return null;
-  const sCtx=srcCanvas.getContext('2d');
-  const sData=sCtx.getImageData(0,0,srcCanvas.width,srcCanvas.height).data;
+  const H=computeH(dst,[sc.tl,sc.tr,sc.br,sc.bl]);if(!H)return null;
+  const sData=srcCanvas.getContext('2d').getImageData(0,0,srcCanvas.width,srcCanvas.height).data;
   const sw=srcCanvas.width,sh=srcCanvas.height;
   const out=document.createElement('canvas');out.width=outW;out.height=outH;
   const oCtx=out.getContext('2d');const oImg=oCtx.createImageData(outW,outH);const od=oImg.data;
-  for(let dy=0;dy<outH;dy++){for(let dx=0;dx<outW;dx++){const w=H[2][0]*dx+H[2][1]*dy+H[2][2];const sx=Math.round((H[0][0]*dx+H[0][1]*dy+H[0][2])/w);const sy=Math.round((H[1][0]*dx+H[1][1]*dy+H[1][2])/w);if(sx>=0&&sx<sw&&sy>=0&&sy<sh){const si=(sy*sw+sx)*4,di=(dy*outW+dx)*4;od[di]=sData[si];od[di+1]=sData[si+1];od[di+2]=sData[si+2];od[di+3]=255;}}}
+  for(let dy=0;dy<outH;dy++){
+    for(let dx=0;dx<outW;dx++){
+      const ww=H[2][0]*dx+H[2][1]*dy+H[2][2];
+      // Use sub-pixel float coords for bilinear sampling
+      const fx=(H[0][0]*dx+H[0][1]*dy+H[0][2])/ww;
+      const fy=(H[1][0]*dx+H[1][1]*dy+H[1][2])/ww;
+      if(fx>=0&&fx<sw&&fy>=0&&fy<sh){
+        const px=bilinear(sData,sw,sh,fx,fy);
+        const di=(dy*outW+dx)*4;
+        od[di]=px[0];od[di+1]=px[1];od[di+2]=px[2];od[di+3]=255;
+      }
+    }
+  }
   oCtx.putImageData(oImg,0,0);return out;
 }
 
 $('btnApplyCrop').addEventListener('click',async()=>{
   if(!state.cropActive){toast('Enable crop first');return;}
-  toast('Applying perspective correction…');
+  toast('Applying HD perspective correction…');
   await tick();
-  // Load original full-res image
-  const fullImg=await loadImg(state.currentImage);
-  const fc=document.createElement('canvas');fc.width=fullImg.naturalWidth;fc.height=fullImg.naturalHeight;fc.getContext('2d').drawImage(fullImg,0,0);
-  // Scale factors: display canvas → full image
+  // Always warp the FULL-RESOLUTION master (state.hdImage)
+  const fullImg=await loadImg(state.hdImage);
+  const fc=document.createElement('canvas');
+  fc.width=fullImg.naturalWidth;fc.height=fullImg.naturalHeight;
+  fc.getContext('2d').drawImage(fullImg,0,0);
+  // Scale: display canvas coords → full-res image coords
   const sx=fullImg.naturalWidth/editCanvas.width;
   const sy=fullImg.naturalHeight/editCanvas.height;
   const warped=warpPerspective(fc,state.corners,sx,sy);
   if(!warped){toast('Crop failed','error');return;}
-  state.currentImage=warped.toDataURL('image/png');
+  // Store warped result as new HD master
+  const hdURL=warped.toDataURL('image/png');
+  state.hdImage=hdURL;
+  state.currentImage=hdURL;
   hideCrop();renderEdit();toast('Perspective crop applied!','success');
 });
 
@@ -232,15 +348,37 @@ function addTextItem(txt,color,bg,size,font){
 }
 function makeDraggable(el){let sx=0,sy=0,ox=0,oy=0;el.addEventListener('pointerdown',e=>{e.stopPropagation();el.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;const r=el.getBoundingClientRect(),wr=textLayer.getBoundingClientRect();ox=r.left-wr.left;oy=r.top-wr.top;});el.addEventListener('pointermove',e=>{el.style.left=(ox+(e.clientX-sx))+'px';el.style.top=(oy+(e.clientY-sy))+'px';});}
 
-// DONE – add page
-$('btnAddToDoc').addEventListener('click',()=>{
-  const ctx=editCanvas.getContext('2d');const wr=editCanvas.getBoundingClientRect();
-  const sx=editCanvas.width/wr.width,sy=editCanvas.height/wr.height;
-  [...textLayer.children].forEach(el=>{const er=el.getBoundingClientRect();const x=(er.left-wr.left)*sx,y=(er.top-wr.top)*sy,fs=parseFloat(el.style.fontSize)*sx;ctx.font=`${fs}px ${el.style.fontFamily}`;if(el.style.background&&el.style.background!=='transparent'){ctx.fillStyle=el.style.background;ctx.fillRect(x,y-fs,el.offsetWidth*sx,el.offsetHeight*sy);}ctx.fillStyle=el.style.color;ctx.fillText(el.textContent,x,y);});
-  // Save at full resolution (original image)
-  const hdURL=editCanvas.toDataURL('image/png');
-  state.pages.push({dataURL:hdURL});updatePageBadge();renderPagesGrid();
-  pdfReadyBanner.classList.remove('hidden');toast('Page added!','success');showScreen('home');
+// DONE – add page (always saves from the HD master)
+$('btnAddToDoc').addEventListener('click',async()=>{
+  // 1. If text overlays exist, bake them onto a full-res canvas
+  let pageURL=state.hdImage;
+  if(textLayer.children.length>0){
+    const hdImg=await loadImg(state.hdImage);
+    const fc=document.createElement('canvas');
+    fc.width=hdImg.naturalWidth;fc.height=hdImg.naturalHeight;
+    const fctx=fc.getContext('2d');
+    fctx.drawImage(hdImg,0,0);
+    // Scale text positions from display canvas to full-res
+    const scX=hdImg.naturalWidth/editCanvas.width;
+    const scY=hdImg.naturalHeight/editCanvas.height;
+    const wr=editCanvas.getBoundingClientRect();
+    [...textLayer.children].forEach(el=>{
+      const er=el.getBoundingClientRect();
+      const x=(er.left-wr.left)*scX,y=(er.top-wr.top)*scY;
+      const fs=parseFloat(el.style.fontSize)*scX;
+      fctx.font=`bold ${fs}px ${el.style.fontFamily}`;
+      if(el.style.background&&el.style.background!=='transparent'){
+        fctx.fillStyle=el.style.background;
+        fctx.fillRect(x,y-fs*1.2,el.offsetWidth*scX,el.offsetHeight*scY);
+      }
+      fctx.fillStyle=el.style.color;
+      fctx.fillText(el.textContent,x,y);
+    });
+    pageURL=fc.toDataURL('image/png');
+  }
+  state.pages.push({dataURL:pageURL});
+  updatePageBadge();renderPagesGrid();
+  pdfReadyBanner.classList.remove('hidden');toast('Page added in HD!','success');showScreen('home');
 });
 $('btnEditBack').addEventListener('click',()=>{hideCrop();showScreen('home');});
 
@@ -269,14 +407,14 @@ async function generatePDF(){
     for(let i=0;i<total;i++){
       updateProgress(Math.round(((i+0.5)/total)*100),`Page ${i+1} of ${total}…`);await tick();
       const img=await loadImg(state.pages[i].dataURL);
-      // Use points at 150 PPI for HD output
-      const pxToPt=pt=>pt*72/150;
+      // 300 PPI: 1 px = 72/300 pt  → real print-quality sizing
+      const pxToPt=px=>px*72/300;
       const pw=pxToPt(img.width),ph=pxToPt(img.height);
       const land=img.width>img.height;
       if(i===0)pdf=new jsPDF({orientation:land?'l':'p',unit:'pt',format:[pw,ph]});
       else pdf.addPage([pw,ph],land?'l':'p');
-      // Add as PNG for lossless HD quality
-      pdf.addImage(state.pages[i].dataURL,'PNG',0,0,pw,ph,undefined,'FAST');
+      // JPEG quality:1.0 gives best size/quality ratio; PNG is too large for jsPDF
+      pdf.addImage(state.pages[i].dataURL,'JPEG',0,0,pw,ph,undefined,'NONE',0,1.0);
     }
     updateProgress(100,'Saving HD PDF…');await tick();
     pdf.save('DocScan_HD.pdf');
