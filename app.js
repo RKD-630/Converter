@@ -337,16 +337,23 @@ $('btnApplyCrop').addEventListener('click',async()=>{
 // TEXT
 $('btnAddText').addEventListener('click',()=>{
   const txt=$('textInput').value.trim();if(!txt){toast('Enter text first');return;}
-  addTextItem(txt,$('colorText').value,$('chkTransparent').checked?'transparent':$('colorTextBg').value,$('fontSize').value,$('fontFamily').value);
+  addTextItem(txt,$('colorText').value,$('chkTransparent').checked?'transparent':$('colorTextBg').value,$('fontSize').value,$('fontFamily').value,$('colorTextShadow').value);
   $('textInput').value='';toast('Text placed – drag to move, double-tap removes');
 });
-function addTextItem(txt,color,bg,size,font){
+function addTextItem(txt,color,bg,size,font,shadowColor){
   const el=document.createElement('div');el.className='draggable-text';el.textContent=txt;
-  Object.assign(el.style,{position:'absolute',left:'10%',top:'10%',color,background:bg,fontSize:size+'px',fontFamily:font,padding:bg==='transparent'?'0':'4px 10px',borderRadius:'6px',cursor:'move',userSelect:'none',pointerEvents:'all',maxWidth:'80%',wordBreak:'break-word',border:'1px dashed rgba(255,255,255,.5)',zIndex:10});
-  textLayer.style.pointerEvents='all';textLayer.appendChild(el);makeDraggable(el);
+  Object.assign(el.style,{position:'absolute',color,background:bg,fontSize:size+'px',fontFamily:font,padding:bg==='transparent'?'0':'4px 10px',borderRadius:'6px',cursor:'move',userSelect:'none',pointerEvents:'all',maxWidth:'80%',wordBreak:'break-word',border:'1px dashed rgba(255,255,255,.5)',zIndex:10,textShadow:`1px 1px 3px ${shadowColor}`});
+  el.dataset.shadowColor=shadowColor;
+  textLayer.style.pointerEvents='all';textLayer.appendChild(el);
+  const cwr=canvasWrapper.getBoundingClientRect();
+  const cR=editCanvas.getBoundingClientRect();
+  const elW=el.offsetWidth,elH=el.offsetHeight;
+  el.style.left=((cR.left-cwr.left)+cR.width/2 - elW/2)+'px';
+  el.style.top=((cR.top-cwr.top)+cR.height*0.98 - elH)+'px';
+  makeDraggable(el);
   el.addEventListener('dblclick',()=>el.remove());
 }
-function makeDraggable(el){let sx=0,sy=0,ox=0,oy=0;el.addEventListener('pointerdown',e=>{e.stopPropagation();el.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;const r=el.getBoundingClientRect(),wr=textLayer.getBoundingClientRect();ox=r.left-wr.left;oy=r.top-wr.top;});el.addEventListener('pointermove',e=>{el.style.left=(ox+(e.clientX-sx))+'px';el.style.top=(oy+(e.clientY-sy))+'px';});}
+function makeDraggable(el){let sx=0,sy=0,ox=0,oy=0;el.addEventListener('pointerdown',e=>{e.stopPropagation();el.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;const r=el.getBoundingClientRect(),wr=canvasWrapper.getBoundingClientRect();ox=r.left-wr.left;oy=r.top-wr.top;});el.addEventListener('pointermove',e=>{if(el.hasPointerCapture(e.pointerId)){el.style.left=(ox+(e.clientX-sx))+'px';el.style.top=(oy+(e.clientY-sy))+'px';}});}
 
 // DONE – add page (always saves from the HD master)
 $('btnAddToDoc').addEventListener('click',async()=>{
@@ -371,8 +378,13 @@ $('btnAddToDoc').addEventListener('click',async()=>{
         fctx.fillStyle=el.style.background;
         fctx.fillRect(x,y-fs*1.2,el.offsetWidth*scX,el.offsetHeight*scY);
       }
+      if(el.dataset.shadowColor){
+        fctx.shadowColor=el.dataset.shadowColor;fctx.shadowBlur=3*scX;
+        fctx.shadowOffsetX=1*scX;fctx.shadowOffsetY=1*scX;
+      }
       fctx.fillStyle=el.style.color;
       fctx.fillText(el.textContent,x,y);
+      fctx.shadowColor='transparent';
     });
     pageURL=fc.toDataURL('image/png');
   }
@@ -407,14 +419,19 @@ async function generatePDF(){
     for(let i=0;i<total;i++){
       updateProgress(Math.round(((i+0.5)/total)*100),`Page ${i+1} of ${total}…`);await tick();
       const img=await loadImg(state.pages[i].dataURL);
-      // 300 PPI: 1 px = 72/300 pt  → real print-quality sizing
-      const pxToPt=px=>px*72/300;
-      const pw=pxToPt(img.width),ph=pxToPt(img.height);
       const land=img.width>img.height;
-      if(i===0)pdf=new jsPDF({orientation:land?'l':'p',unit:'pt',format:[pw,ph]});
-      else pdf.addPage([pw,ph],land?'l':'p');
-      // JPEG quality:1.0 gives best size/quality ratio; PNG is too large for jsPDF
-      pdf.addImage(state.pages[i].dataURL,'JPEG',0,0,pw,ph,undefined,'NONE',0,1.0);
+      const a4w = land ? 297 : 210;
+      const a4h = land ? 210 : 297;
+      if(i===0)pdf=new jsPDF({orientation:land?'l':'p',unit:'mm',format:'a4'});
+      else pdf.addPage('a4',land?'l':'p');
+      
+      const imgRatio = img.width / img.height;
+      const a4Ratio = a4w / a4h;
+      let finalW = a4w, finalH = a4h;
+      if(imgRatio > a4Ratio) { finalH = a4w / imgRatio; } else { finalW = a4h * imgRatio; }
+      const dx = (a4w - finalW) / 2, dy = (a4h - finalH) / 2;
+      
+      pdf.addImage(state.pages[i].dataURL,'JPEG',dx,dy,finalW,finalH,undefined,'FAST');
     }
     updateProgress(100,'Saving HD PDF…');await tick();
     pdf.save('DocScan_HD.pdf');
