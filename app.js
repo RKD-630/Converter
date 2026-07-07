@@ -205,18 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    /* === Theme Toggle === */
-    document.getElementById('btn-theme-toggle').addEventListener('click', () => {
-        const root = document.documentElement;
-        if (root.getAttribute('data-theme') === 'dark') {
-            root.removeAttribute('data-theme');
-            document.getElementById('btn-theme-toggle').innerHTML = '<i class="fa-solid fa-moon"></i>';
-        } else {
-            root.setAttribute('data-theme', 'dark');
-            document.getElementById('btn-theme-toggle').innerHTML = '<i class="fa-solid fa-sun"></i>';
-        }
-    });
-
     /* === Tab 4: Create PDF (Advanced) === */
     const createPdfInput = document.getElementById('create-pdf-input');
     const createPdfUploadZone = document.getElementById('create-pdf-upload');
