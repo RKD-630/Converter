@@ -35,6 +35,18 @@ function showScreen(n){Object.values(screens).forEach(s=>s.classList.remove('act
 
 function toast(msg,type=''){const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=msg;$('toastContainer').appendChild(el);setTimeout(()=>el.remove(),2800);}
 
+// THEME
+$('btnThemeToggle').addEventListener('click',()=>{
+  const root=document.documentElement;
+  if(root.getAttribute('data-theme')==='dark'){
+    root.removeAttribute('data-theme');
+    $('btnThemeToggle').textContent='🌙';
+  }else{
+    root.setAttribute('data-theme','dark');
+    $('btnThemeToggle').textContent='☀️';
+  }
+});
+
 // HOME
 $('btnCamera').addEventListener('click',()=>modalPerm.classList.remove('hidden'));
 $('btnGallery').addEventListener('click',()=>$('galleryInput').click());
@@ -75,7 +87,7 @@ function loadIntoEditor(dataURL){
   state.hdImage=dataURL;
   state.rotation=0;
   state.adj={brightness:0,contrast:0,darkness:0,sharpness:0};
-  state.cropActive=false;textLayer.innerHTML='';
+  state.cropActive=false;state.symmetricCrop=false;textLayer.innerHTML='';
   ['slBrightness','slContrast','slDarkness','slSharpness'].forEach(id=>$(id).value=0);
   ['valBrightness','valContrast','valDarkness','valSharpness'].forEach(id=>$(id).textContent='0');
   hideCrop();renderEdit();
@@ -231,15 +243,22 @@ function initDefaultCorners(){
 
 $('btnCropToggle').addEventListener('click',()=>{
   if(state.cropActive){hideCrop();$('btnCropToggle').innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 2 6 8 2 8"/><polyline points="18 22 18 16 22 16"/><path d="M2 8h14a2 2 0 0 1 2 2v10"/><path d="M22 16H8a2 2 0 0 1-2-2V2"/></svg> Manual Crop';return;}
-  state.cropActive=true;positionOverlay();initDefaultCorners();refreshCropSVG();
+  state.cropActive=true; state.symmetricCrop=false; positionOverlay();initDefaultCorners();refreshCropSVG();
   $('btnCropToggle').textContent='Cancel Crop';toast('Drag each corner (1–4) to adjust');
 });
 
 $('btnAutoCrop').addEventListener('click',()=>{
-  state.cropActive=true;positionOverlay();
+  state.cropActive=true; state.symmetricCrop=false; positionOverlay();
   const W=cropOverlay.clientWidth,H=cropOverlay.clientHeight,p=0.04;
   state.corners={tl:{x:W*p,y:H*p},tr:{x:W*(1-p),y:H*p},br:{x:W*(1-p),y:H*(1-p)},bl:{x:W*p,y:H*(1-p)}};
   refreshCropSVG();toast('Auto crop – drag corners to refine','success');
+});
+
+$('btnFullPage').addEventListener('click',()=>{
+  state.cropActive=true; state.symmetricCrop=true; positionOverlay();
+  const W=cropOverlay.clientWidth,H=cropOverlay.clientHeight;
+  state.corners={tl:{x:0,y:0},tr:{x:W,y:0},br:{x:W,y:H},bl:{x:0,y:H}};
+  refreshCropSVG();toast('Symmetric crop – drag any corner to scale','success');
 });
 
 // Corner dragging
@@ -252,9 +271,20 @@ Object.values(chEls).forEach(el=>{
   el.addEventListener('pointermove',e=>{
     if(state.activeDrag!==cKey)return;
     const wr=cropOverlay.getBoundingClientRect();
-    const x=Math.max(0,Math.min(cropOverlay.clientWidth, e.clientX-wr.left));
-    const y=Math.max(0,Math.min(cropOverlay.clientHeight,e.clientY-wr.top));
-    state.corners[cKey]={x,y};refreshCropSVG();
+    const W=cropOverlay.clientWidth, H=cropOverlay.clientHeight;
+    const x=Math.max(0,Math.min(W, e.clientX-wr.left));
+    const y=Math.max(0,Math.min(H, e.clientY-wr.top));
+    if (state.symmetricCrop) {
+      const cx=W/2, cy=H/2;
+      const dx=Math.abs(x-cx), dy=Math.abs(y-cy);
+      state.corners.tl={x:cx-dx, y:cy-dy};
+      state.corners.tr={x:cx+dx, y:cy-dy};
+      state.corners.br={x:cx+dx, y:cy+dy};
+      state.corners.bl={x:cx-dx, y:cy+dy};
+    } else {
+      state.corners[cKey]={x,y};
+    }
+    refreshCropSVG();
   });
   el.addEventListener('pointerup',()=>{el.classList.remove('active');state.activeDrag=null;});
   el.addEventListener('pointercancel',()=>{el.classList.remove('active');state.activeDrag=null;});
@@ -267,22 +297,7 @@ function computeH(dst,src){const A=[],b=[];for(let i=0;i<4;i++){const[xs,ys]=[sr
 
 function dist(a,b){return Math.hypot(b.x-a.x,b.y-a.y);}
 
-/* Bilinear sample – smooth HD quality (no pixel staircase) */
-function bilinear(data,w,h,fx,fy){
-  const x0=Math.floor(fx),y0=Math.floor(fy);
-  const x1=Math.min(x0+1,w-1),y1=Math.min(y0+1,h-1);
-  const dx=fx-x0,dy=fy-y0;
-  const out=[0,0,0,255];
-  for(let c=0;c<3;c++){
-    const tl=data[(y0*w+x0)*4+c],tr=data[(y0*w+x1)*4+c];
-    const bl=data[(y1*w+x0)*4+c],br=data[(y1*w+x1)*4+c];
-    out[c]=Math.round(tl*(1-dx)*(1-dy)+tr*dx*(1-dy)+bl*(1-dx)*dy+br*dx*dy);
-  }
-  return out;
-}
-
 function warpPerspective(srcCanvas,corners,scaleX,scaleY){
-  // Scale display corners → full-resolution image corners
   const sc={
     tl:{x:corners.tl.x*scaleX,y:corners.tl.y*scaleY},
     tr:{x:corners.tr.x*scaleX,y:corners.tr.y*scaleY},
@@ -300,13 +315,19 @@ function warpPerspective(srcCanvas,corners,scaleX,scaleY){
   for(let dy=0;dy<outH;dy++){
     for(let dx=0;dx<outW;dx++){
       const ww=H[2][0]*dx+H[2][1]*dy+H[2][2];
-      // Use sub-pixel float coords for bilinear sampling
       const fx=(H[0][0]*dx+H[0][1]*dy+H[0][2])/ww;
       const fy=(H[1][0]*dx+H[1][1]*dy+H[1][2])/ww;
       if(fx>=0&&fx<sw&&fy>=0&&fy<sh){
-        const px=bilinear(sData,sw,sh,fx,fy);
-        const di=(dy*outW+dx)*4;
-        od[di]=px[0];od[di+1]=px[1];od[di+2]=px[2];od[di+3]=255;
+        const x0=fx|0, y0=fy|0;
+        const x1=(x0+1>=sw)?x0:x0+1, y1=(y0+1>=sh)?y0:y0+1;
+        const dxf=fx-x0, dyf=fy-y0;
+        const i00=(y0*sw+x0)<<2, i10=(y0*sw+x1)<<2, i01=(y1*sw+x0)<<2, i11=(y1*sw+x1)<<2;
+        const w00=(1-dxf)*(1-dyf), w10=dxf*(1-dyf), w01=(1-dxf)*dyf, w11=dxf*dyf;
+        const di=(dy*outW+dx)<<2;
+        od[di]   = sData[i00]*w00 + sData[i10]*w10 + sData[i01]*w01 + sData[i11]*w11;
+        od[di+1] = sData[i00+1]*w00 + sData[i10+1]*w10 + sData[i01+1]*w01 + sData[i11+1]*w11;
+        od[di+2] = sData[i00+2]*w00 + sData[i10+2]*w10 + sData[i01+2]*w01 + sData[i11+2]*w11;
+        od[di+3] = 255;
       }
     }
   }
@@ -393,6 +414,12 @@ $('btnAddToDoc').addEventListener('click',async()=>{
   pdfReadyBanner.classList.remove('hidden');toast('Page added in HD!','success');showScreen('home');
 });
 $('btnEditBack').addEventListener('click',()=>{hideCrop();showScreen('home');});
+
+$('btnMakeFile').addEventListener('click', async () => {
+  $('btnAddToDoc').click(); // Adds the current page
+  await tick();
+  generatePDF(); // Immediately generate the PDF
+});
 
 // PAGES
 function updatePageBadge(){pageBadge.textContent=state.pages.length;pageCount.textContent=state.pages.length;}
