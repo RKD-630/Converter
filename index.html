@@ -1,271 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All Converter - Premium Document Tools</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Cropper.js CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
-    <!-- App Styles -->
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="DocScan Pro – Scan documents with your mobile camera, auto-crop, adjust, and export as PDF instantly." />
+  <title>DocScan Pro – Document to PDF Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="app-background"></div>
-    <div class="app-container">
-        <!-- Sidebar Navigation -->
-        <nav class="sidebar glass">
-            <div class="logo"></div>
-                <div class="logo-icon-bg"><i class="fa-solid fa-layer-group"></i></div>
-                <h2>All Converter</h2>
-            <div class="bottom-navigation">
-                <ul class="nav-links">
-                    <li class="active" data-tab="tab-img-to-pdf">
-                        <i class="fa-solid fa-file-image"></i>
-                        <span>Image to PDF</span>
-                    </li>
-                    <li data-tab="tab-pdf-to-img">
-                        <i class="fa-solid fa-file-pdf"></i>
-                        <span>PDF to Image</span>
-                    </li>
-                    <li data-tab="tab-create-pdf">
-                        <i class="fa-solid fa-folder-plus"></i>
-                        <span>Create PDF</span>
-                    </li>
-                </ul>
-            </div>
-        </nav>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Tab: Image to PDF -->
-            <section id="tab-img-to-pdf" class="tab-pane active glass-pane">
-                <header class="tab-header">
-                    <h1>Image to PDF</h1>
-                    <p>Convert multiple images into a beautifully formatted PDF document.</p>
-                </header>
-                <div class="content-body">
-                    <div class="upload-zone" id="img-to-pdf-upload">
-                        <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                        <p>Drag & drop images here or <strong>browse files</strong></p>
-                        <input type="file" id="img-to-pdf-input" multiple accept="image/*" hidden>
-                    </div>
-                    
-                    <div class="action-bar hidden" id="img-to-pdf-actions">
-                        <span class="file-count"><span id="img-to-pdf-count">0</span> files loaded</span>
-                        <div class="action-buttons">
-                            <button class="btn btn-secondary btn-clear">
-                                <i class="fa-solid fa-trash"></i> Clear All
-                            </button>
-                            <button class="btn btn-primary" id="btn-generate-img-to-pdf">
-                                <i class="fa-solid fa-file-export"></i> Convert to PDF
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="items-grid" id="img-to-pdf-grid"></div>
-                </div>
-            </section>
-
-            <!-- Tab: PDF to Image -->
-            <section id="tab-pdf-to-img" class="tab-pane hidden glass-pane">
-                <header class="tab-header">
-                    <h1>PDF to Image</h1>
-                    <p>Extract high-resolution images from any PDF file.</p>
-                </header>
-                <div class="content-body">
-                    <div class="upload-zone" id="pdf-to-img-upload">
-                        <div class="upload-icon"><i class="fa-solid fa-file-pdf"></i></div>
-                        <p>Drag & drop a PDF here or <strong>browse files</strong></p>
-                        <input type="file" id="pdf-to-img-input" accept="application/pdf" hidden>
-                    </div>
-                    <div class="action-bar hidden" id="pdf-to-img-actions">
-                        <span class="file-count"><span id="pdf-to-img-count">0</span> pages extracted</span>
-                        <div class="action-buttons">
-                            <button class="btn btn-secondary btn-clear">
-                                <i class="fa-solid fa-trash"></i> Clear PDF
-                            </button>
-                            <button class="btn btn-primary" id="btn-export-pdf-images">
-                                <i class="fa-solid fa-download"></i> Download All as ZIP
-                            </button>
-                        </div>
-                    </div>
-                    <div class="items-grid" id="pdf-to-img-grid"></div>
-                </div>
-            </section>
-
-
-            <!-- Tab: Create PDF (Advanced) -->
-            <section id="tab-create-pdf" class="tab-pane hidden glass-pane">
-                <header class="tab-header">
-                    <h1>Advanced PDF Builder</h1>
-                    <p>Mix images & PDFs, reorder dynamically, edit pages, and compile a master PDF.</p>
-                </header>
-                <div class="content-body">
-                    <div class="upload-zone row-layout" id="create-pdf-upload">
-                        <div class="upload-info">
-                            <div class="upload-icon small"><i class="fa-solid fa-layer-group"></i></div>
-                            <div>
-                                <h3>Add Media</h3>
-                                <p>Drag & drop or click to add images and PDFs</p>
-                            </div>
-                        </div>
-                        <input type="file" id="create-pdf-input" multiple accept="image/*,application/pdf" hidden>
-                        <button class="btn btn-primary btn-outline" onclick="document.getElementById('create-pdf-input').click()">
-                            <i class="fa-solid fa-plus"></i> Browse
-                        </button>
-                    </div>
-                    <div class="action-bar hidden" id="create-pdf-actions">
-                        <div class="pagination-info">
-                            Pages: <strong><span id="total-pages-display">0</span></strong>
-                        </div>
-                        <div class="action-buttons">
-                            <button class="btn btn-secondary btn-clear">
-                                <i class="fa-solid fa-trash"></i> Clear Assembly
-                            </button>
-                            <button class="btn btn-primary" id="btn-generate-create-pdf">
-                                <i class="fa-solid fa-file-export"></i> Compile Master PDF
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Interactive list/grid with SortableJS -->
-                    <div class="items-grid sortable-grid" id="create-pdf-grid"></div>
-                </div>
-            </section>
-        </main>
+<!-- ═══════════════════ SPLASH SCREEN ═══════════════════ -->
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="logo-ring">
+      <svg viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="40" r="36" stroke="url(#lg1)" stroke-width="4"/>
+        <path d="M24 28h20l8 8v16H24V28z" fill="url(#lg2)" opacity=".9"/>
+        <path d="M44 28v8h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        <path d="M29 40h22M29 45h16M29 35h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="lg1" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#7B5EA7"/><stop offset="1" stop-color="#00D4FF"/>
+          </linearGradient>
+          <linearGradient id="lg2" x1="24" y1="28" x2="56" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#7B5EA7"/><stop offset="1" stop-color="#4FC3F7"/>
+          </linearGradient>
+        </defs>
+      </svg>
     </div>
+    <h1 class="splash-title">DocScan <span>Pro</span></h1>
+    <p class="splash-sub">Scan · Crop · Adjust · PDF</p>
+    <div class="splash-loader"><span></span><span></span><span></span></div>
+  </div>
+</div>
 
-    <!-- Global Image Editor Modal -->
-    <div id="editor-modal" class="modal-overlay hidden">
-        <div class="modal-content glass-pane">
-            <div class="modal-header">
-                <h2>Photo & Document Editor</h2>
-                <button class="btn-close" id="btn-close-editor"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="editor-layout">
-                <div class="editor-canvas-container">
-                    <div class="canvas-wrapper">
-                        <!-- Used for Cropper.js -->
-                        <img id="editor-image-preview" src="">
-                    </div>
-                </div>
-                <div class="editor-sidebar glass">
-                    <div class="editor-tabs">
-                        <button class="editor-tab active" data-target="adjust">Adjust</button>
-                        <button class="editor-tab" data-target="crop">Crop</button>
-                        <button class="editor-tab" data-target="text">Text</button>
-                    </div>
-                    
-                    <div class="editor-tab-content active" id="editor-panel-adjust">
-                        <div class="control-group">
-                            <div class="flex-between">
-                                <label>Brightness</label>
-                                <span id="val-brightness">100%</span>
-                            </div>
-                            <input type="range" id="filter-brightness" min="0" max="200" value="100">
-                        </div>
-                        <div class="control-group">
-                            <div class="flex-between">
-                                <label>Contrast</label>
-                                <span id="val-contrast">100%</span>
-                            </div>
-                            <input type="range" id="filter-contrast" min="0" max="200" value="100">
-                        </div>
-                        <div class="control-group">
-                            <div class="flex-between">
-                                <label>Grayscale (Scan Mode)</label>
-                                <span id="val-grayscale">0%</span>
-                            </div>
-                            <input type="range" id="filter-grayscale" min="0" max="100" value="0">
-                        </div>
-                        <button class="btn btn-secondary full-width mt-2" id="btn-reset-filters">Reset Filters</button>
-                    </div>
+<!-- ═══════════════════ APP ROOT ═══════════════════ -->
+<div id="app" class="app hidden">
 
-                    <div class="editor-tab-content hidden" id="editor-panel-crop">
-                        <p class="help-text">Select an aspect ratio or crop freely.</p>
-                        <div class="crop-ratios">
-                            <button class="ratio-btn" data-ratio="NaN">Free</button>
-                            <button class="ratio-btn" data-ratio="1">1:1</button>
-                            <button class="ratio-btn" data-ratio="1.33333">4:3</button>
-                            <button class="ratio-btn" data-ratio="1.77777">16:9</button>
-                            <button class="ratio-btn" data-ratio="0.707">A4</button>
-                        </div>
-                        <button class="btn btn-primary full-width mt-2" id="btn-apply-crop">Apply Crop</button>
-                    </div>
+  <!-- ── TOP HEADER ── -->
+  <header class="app-header">
+    <div class="header-logo">
+      <svg width="28" height="28" viewBox="0 0 80 80" fill="none">
+        <circle cx="40" cy="40" r="36" stroke="url(#hLg)" stroke-width="5"/>
+        <path d="M24 28h20l8 8v16H24V28z" fill="url(#hLg2)"/>
+        <path d="M44 28v8h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        <path d="M29 40h22M29 45h16M29 35h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="hLg" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#7B5EA7"/><stop offset="1" stop-color="#00D4FF"/>
+          </linearGradient>
+          <linearGradient id="hLg2" x1="24" y1="28" x2="56" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#9B7EC8"/><stop offset="1" stop-color="#4FC3F7"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span>DocScan <b>Pro</b></span>
+    </div>
+    <div class="header-actions" style="display:flex; gap:10px; align-items:center;">
+      <button id="btnThemeToggle" class="hdr-btn" title="Toggle Theme" style="font-size:16px; padding:6px 10px;">🌙</button>
+      <button id="btnPages" class="hdr-btn" title="View pages">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="page-badge" id="pageBadge">0</span>
+      </button>
+    </div>
+  </header>
 
-                    <div class="editor-tab-content hidden" id="editor-panel-text">
-                        <div class="text-tools">
-                            <input type="text" id="text-input" class="full-width" placeholder="Enter text to overlay...">
-                            <div class="color-pickers mt-2">
-                                <div class="color-field">
-                                    <label>Text</label>
-                                    <input type="color" id="text-color" value="#000000">
-                                </div>
-                                <div class="color-field">
-                                    <label>Background</label>
-                                    <input type="color" id="text-bg-color" value="#ffffff">
-                                </div>
-                            </div>
-                            <button class="btn btn-secondary full-width mt-2" id="btn-add-text"><i class="fa-solid fa-plus"></i> Add Text Box</button>
-                        </div>
-                        
-                        <div class="added-texts mt-2">
-                            <h4>Active Text Elements</h4>
-                            <div id="text-elements-list" class="text-elements-list"></div>
-                        </div>
-                        <p class="help-text note">* Text can be positioned by dragging.</p>
-                    </div>
-
-                    <div class="editor-actions">
-                        <button class="btn btn-secondary" id="btn-cancel-edit">Cancel</button>
-                        <button class="btn btn-primary" id="btn-save-edit">Save Changes</button>
-                    </div>
-                </div>
-            </div>
+  <!-- ══════════════════════════════════════════════════════
+        SCREEN 1 – HOME (camera / gallery)
+  ══════════════════════════════════════════════════════ -->
+  <section id="screenHome" class="screen active">
+    <div class="home-hero">
+      <div class="hero-graphic">
+        <div class="camera-outline">
+          <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+          <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+          <div class="scan-line"></div>
         </div>
+        <p class="hero-label">Point camera at a document</p>
+      </div>
+    </div>
+    <div class="home-actions">
+      <button id="btnCamera" class="action-btn primary">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Scan with Camera
+      </button>
+      <button id="btnGallery" class="action-btn secondary">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Import from Gallery
+      </button>
+      <input type="file" id="galleryInput" accept="image/*" multiple hidden />
+    </div>
+    <div id="pdfReadyBanner" class="pdf-ready-banner hidden">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      PDF ready! Tap download or continue scanning.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+        SCREEN 2 – CAMERA VIEWFINDER
+  ══════════════════════════════════════════════════════ -->
+  <section id="screenCamera" class="screen">
+    <div class="viewfinder-wrap">
+      <video id="cameraVideo" autoplay playsinline muted></video>
+      <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+      <div class="doc-detect-ring" id="detectRing"></div>
+      <div class="vf-corners">
+        <div class="vf-c tl"></div><div class="vf-c tr"></div>
+        <div class="vf-c bl"></div><div class="vf-c br"></div>
+      </div>
+      <div class="detect-label" id="detectLabel">Searching for document…</div>
+    </div>
+    <div class="cam-toolbar">
+      <button id="btnCamClose" class="cam-ctrl ghost">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <button id="btnCapture" class="capture-btn">
+        <span class="capture-inner"></span>
+      </button>
+      <button id="btnFlash" class="cam-ctrl ghost" title="Flash">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+        SCREEN 3 – EDIT (crop + adjustments)
+  ══════════════════════════════════════════════════════ -->
+  <section id="screenEdit" class="screen">
+    <div class="edit-header">
+      <button id="btnEditBack" class="icon-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="edit-title">Adjust</span>
+      <div style="display: flex; gap: 8px;">
+        <button id="btnMakeFile" class="icon-btn" style="padding:4px 10px; font-size:14px; background:var(--accent-grad); color:#fff;">Make PDF</button>
+        <button id="btnAddToDoc" class="icon-btn accent">Add</button>
+      </div>
     </div>
 
-    <!-- Replace Page Modal -->
-    <div id="replace-modal" class="modal-overlay hidden">
-        <div class="modal-content glass-pane small-modal">
-            <div class="modal-header">
-                <h2>Replace Page</h2>
-                <button class="btn-close" id="btn-close-replace"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="upload-zone small" id="replace-upload">
-                <i class="fa-solid fa-file-import"></i>
-                <p>Click to upload a new Image or PDF</p>
-                <input type="file" id="replace-input" accept="image/*,application/pdf" hidden>
-            </div>
+    <!-- Canvas area -->
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <button class="crop-btn" id="btnRotate" style="position: absolute; bottom: 20px; right: 20px; z-index: 500; background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Rotate 90°
+      </button>
+      <canvas id="editCanvas"></canvas>
+      <!-- 4-Corner Perspective Crop overlay -->
+      <div id="cropOverlay" class="crop-overlay hidden">
+        <svg id="cropSVG" class="crop-svg">
+          <defs>
+            <mask id="cropMask">
+              <rect id="maskBg" fill="white" x="0" y="0" width="100%" height="100%"/>
+              <polygon id="maskPoly" fill="black"/>
+            </mask>
+          </defs>
+          <rect id="darkRect" fill="rgba(0,0,0,0.62)" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%"/>
+          <polygon id="cropBorder" fill="none" stroke="#00D4FF" stroke-width="2"/>
+          <!-- rule-of-thirds lines inside selection -->
+          <line id="g1" stroke="rgba(0,212,255,.3)" stroke-width="1"/>
+          <line id="g2" stroke="rgba(0,212,255,.3)" stroke-width="1"/>
+          <line id="g3" stroke="rgba(0,212,255,.3)" stroke-width="1"/>
+          <line id="g4" stroke="rgba(0,212,255,.3)" stroke-width="1"/>
+          <!-- Corner handles: tl=1, tr=2, br=3, bl=4 -->
+          <g class="ch" id="chTL" data-c="tl"><circle r="22" class="ch-hit"/><circle r="9" class="ch-ring"/><circle r="5" class="ch-dot"/><text class="ch-lbl" dy="4">1</text></g>
+          <g class="ch" id="chTR" data-c="tr"><circle r="22" class="ch-hit"/><circle r="9" class="ch-ring"/><circle r="5" class="ch-dot"/><text class="ch-lbl" dy="4">2</text></g>
+          <g class="ch" id="chBR" data-c="br"><circle r="22" class="ch-hit"/><circle r="9" class="ch-ring"/><circle r="5" class="ch-dot"/><text class="ch-lbl" dy="4">3</text></g>
+          <g class="ch" id="chBL" data-c="bl"><circle r="22" class="ch-hit"/><circle r="9" class="ch-ring"/><circle r="5" class="ch-dot"/><text class="ch-lbl" dy="4">4</text></g>
+        </svg>
+      </div>
+      <!-- Text overlay layer -->
+      <div id="textLayer" class="text-layer"></div>
+    </div>
+
+    <!-- Tool tabs -->
+    <div class="tool-tabs">
+      <button class="tab-btn active" data-tab="adjust">Adjust</button>
+      <button class="tab-btn" data-tab="crop">Crop</button>
+      <button class="tab-btn" data-tab="text">Text</button>
+    </div>
+
+    <!-- ADJUST panel -->
+    <div id="panelAdjust" class="tool-panel active">
+      <div class="sliders-grid">
+        <div class="slider-item">
+          <label>Brightness <span id="valBrightness">0</span></label>
+          <input type="range" id="slBrightness" min="-100" max="100" value="0" class="styled-range" />
         </div>
+        <div class="slider-item">
+          <label>Contrast <span id="valContrast">0</span></label>
+          <input type="range" id="slContrast" min="-100" max="100" value="0" class="styled-range" />
+        </div>
+        <div class="slider-item">
+          <label>Darkness <span id="valDarkness">0</span></label>
+          <input type="range" id="slDarkness" min="0" max="100" value="0" class="styled-range" />
+        </div>
+        <div class="slider-item">
+          <label>Sharpness <span id="valSharpness">0</span></label>
+          <input type="range" id="slSharpness" min="0" max="10" value="0" class="styled-range" />
+        </div>
+      </div>
+      <div class="preset-chips">
+        <button class="chip" onclick="applyPreset('original')">Original</button>
+        <button class="chip" onclick="applyPreset('magic')">Magic Color</button>
+        <button class="chip" onclick="applyPreset('grayscale')">Grayscale</button>
+        <button class="chip" onclick="applyPreset('bw')">B&W</button>
+        <button class="chip" onclick="applyPreset('enhance')">Enhance</button>
+      </div>
     </div>
 
-    <!-- Hidden Canvas for Processing -->
-    <div id="hidden-workspace" style="display:none;"></div>
+    <!-- CROP panel -->
+    <div id="panelCrop" class="tool-panel">
+      <div class="crop-actions">
+        <button class="crop-btn" id="btnCropToggle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 2 6 8 2 8"/><polyline points="18 22 18 16 22 16"/><path d="M2 8h14a2 2 0 0 1 2 2v10"/><path d="M22 16H8a2 2 0 0 1-2-2V2"/></svg>
+          Manual Crop
+        </button>
+        <button class="crop-btn" id="btnAutoCrop">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Auto Detect
+        </button>
+        <button class="crop-btn" id="btnFullPage">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+          Full Page
+        </button>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay hidden">
-        <div class="spinner"></div>
-        <h3 id="loading-message">Processing...</h3>
+        <button class="crop-btn accent" id="btnApplyCrop">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Apply Crop
+        </button>
+      </div>
     </div>
 
-    <!-- Scripts -->
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="window.onOpenCvReadyCallback && window.onOpenCvReadyCallback();" type="text/javascript"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    
-    <!-- App Logic -->
-    <script src="app.js"></script>
+    <!-- TEXT panel -->
+    <div id="panelText" class="tool-panel">
+      <div class="text-controls">
+        <input type="text" id="textInput" placeholder="Type your text…" class="text-input-field" />
+        <div class="text-row">
+          <div class="color-pick-wrap">
+            <label>Text</label>
+            <input type="color" id="colorText" value="#1a1a2e" class="color-pick" title="Text color" />
+          </div>
+          <div class="color-pick-wrap">
+            <label>BG</label>
+            <input type="color" id="colorTextBg" value="#ffffff" class="color-pick" title="Text background" />
+          </div>
+          <div class="color-pick-wrap">
+            <label>Shadow</label>
+            <input type="color" id="colorTextShadow" value="#000000" class="color-pick" title="Text shadow color" />
+          </div>
+          <label class="toggle-wrap">
+            <input type="checkbox" id="chkTransparent" />
+            <span class="toggle-label">Transparent BG</span>
+          </label>
+        </div>
+        <div class="text-row">
+          <select id="fontFamily" class="sel-field">
+            <option value="Inter">Inter</option>
+            <option value="serif">Serif</option>
+            <option value="monospace">Monospace</option>
+            <option value="cursive">Cursive</option>
+          </select>
+          <input type="number" id="fontSize" value="20" min="8" max="120" class="num-field" />
+          <span class="unit-label">px</span>
+        </div>
+        <button id="btnAddText" class="action-btn primary sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Place Text
+        </button>
+        <p class="hint-text">Drag text boxes on the image to reposition.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
+        SCREEN 4 – PAGE MANAGER
+  ══════════════════════════════════════════════════════ -->
+  <section id="screenPages" class="screen">
+    <div class="edit-header">
+      <button id="btnPagesBack" class="icon-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="edit-title">Pages (<span id="pageCount">0</span>)</span>
+      <button id="btnDownloadPDF" class="icon-btn accent pdf-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        PDF
+      </button>
+    </div>
+    <div id="pagesGrid" class="pages-grid"></div>
+    <div class="pages-footer">
+      <button id="btnAddMorePages" class="action-btn secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add More Pages
+      </button>
+    </div>
+  </section>
+
+</div><!-- /app -->
+
+<!-- ═══════════ MODALS ═══════════ -->
+<div id="modalPermission" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-icon cam-icon">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </div>
+    <h2>Camera Access</h2>
+    <p>DocScan Pro needs camera access to scan your documents. Your images stay on your device.</p>
+    <div class="modal-btns">
+      <button id="btnPermAllow" class="action-btn primary">Allow Access</button>
+      <button id="btnPermDeny" class="action-btn ghost">Not Now</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalProgress" class="modal-backdrop hidden">
+  <div class="modal small">
+    <div class="progress-ring-wrap">
+      <svg class="progress-ring" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="26" stroke="#1e1e3a" stroke-width="6" fill="none"/>
+        <circle id="progressCircle" cx="32" cy="32" r="26" stroke="url(#pLg)" stroke-width="6" fill="none"
+          stroke-linecap="round" stroke-dasharray="163" stroke-dashoffset="163"/>
+        <defs>
+          <linearGradient id="pLg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#7B5EA7"/><stop offset="1" stop-color="#00D4FF"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="progress-pct" id="progressPct">0%</span>
+    </div>
+    <p id="progressLabel">Generating PDF…</p>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
